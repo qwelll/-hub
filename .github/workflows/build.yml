@@ -1,0 +1,32 @@
+name: Build RootHide deb
+on:
+  push:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: macos-14
+    env:
+      THEOS: ${{ github.workspace }}/theos
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install package tools
+        run: brew install make dpkg ldid
+      - name: Install RootHide Theos and iOS SDK
+        run: |
+          git clone --recursive --depth 1 https://github.com/roothide/theos.git "$THEOS"
+          git clone --depth 1 https://github.com/theos/sdks.git sdk-download
+          cp -R sdk-download/iPhoneOS16.5.sdk "$THEOS/sdks/"
+      - name: Compile and package
+        run: |
+          export PATH="$(brew --prefix make)/libexec/gnubin:$PATH"
+          make clean
+          make package FINALPACKAGE=1 TARGET=iphone:clang:16.5:15.0
+          ls -lh packages/*.deb
+      - name: Upload RootHide deb
+        uses: actions/upload-artifact@v4
+        with:
+          name: VolumeHUDExpanded-RootHide-deb
+          path: packages/*.deb
+          if-no-files-found: error
