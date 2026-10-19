@@ -1,9 +1,9 @@
 Package: local.volumehudexpanded
 Name: VolumeHUD Expanded
-Version: 0.1.1
+Version: 0.1.2
 Architecture: iphoneos-arm64e
-Description: Keep button-driven volume HUD expanded (experimental iOS 17).
-Maintainer: Minis
-Author: Minis
+Description: Keep the volume HUD expanded during hardware button adjustments.
+Maintainer: qwelll
+Author: qwelll
 Section: Tweaks
 Depends: firmware (>= 17.0), firmware (<< 18.0), ellekit

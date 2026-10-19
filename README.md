@@ -1,4 +1,6 @@
-# VolumeHUD Expanded 0.1.0（测试版）
+# VolumeHUD Expanded 0.1.2
+
+作者 / 维护者：qwelll
 
 目标：连续按音量键时保留首次出现的宽胶囊，不缩成细条；保留系统自动消失。
 环境：iOS 17.2.1 / RootHide；只注入 SpringBoard。
@@ -27,16 +29,17 @@ make package FINALPACKAGE=1
 
 依据 iOS 17 头文件，挂钩 SBElasticValueViewController 的
 transitionStateContextuallyForValueChangeEvent 和 transitionToState:animated:completion:。
-通过 sizeForState: 判断宽窄，记录首次按键路径的宽状态，仅在后续按键上下文把窄状态改回宽状态。
+通过 sizeForState: 判断宽窄，记录首次展示的宽状态，仅在后续按键上下文把窄状态改回宽状态。
 不猜测私有状态枚举；不锁定 frame；不阻止自动隐藏；不改控制中心亮度条。
 
-**尚未在真实 17.2.1 设备验证。** 若该版本在不同调用路径触发收窄，此版可能不生效；需要日志确认后调整，不能保证一次成功。
-没有提供 iSH 交叉编译 deb：先前该环境的伪 arm64e 切片导致过 SpringBoard 安全模式，此次避免重复风险。
+0.1.1 核心逻辑已由用户在 iOS 17.2.1 / RootHide 确认可用。
+0.1.2 保留该逻辑，删除所有日志写入和诊断字符串，并减少隐藏状态及无关转换的尺寸查询；更新后仍建议检查连续按键与自动隐藏。
+通过 GitHub Actions / macOS / RootHide Theos 编译真正 arm64 + arm64e 双切片。
 
-## 诊断与回退
+## 更新与回退
 
-日志（Filza 查看）：`/var/mobile/Library/Accessibility/volumehudexpanded.log`
-如无效果，提供日志和实际表现；正常命中应出现 `block compact`。
-日志会记录状态切换，测试后建议卸载或升级关闭日志版本。
+安装新 deb 覆盖升级，再注销。不需要设置，无后台轮询或定时器。
+新版不再创建或写入日志。旧日志不会自动删除，可自行在 Filza 删除：
+`/var/mobile/Library/Accessibility/volumehudexpanded.log`
 卸载 VolumeHUD Expanded 后注销即可还原。
 若进入安全模式，在安全模式用 Sileo 移除本插件，再注销。

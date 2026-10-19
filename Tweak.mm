@@ -1,21 +1,12 @@
 #import <UIKit/UIKit.h>
 #import <objc/runtime.h>
 extern "C" void MSHookMessageEx(Class cls, SEL selector, IMP replacement, IMP *original);
-#include <stdio.h>
-#include <stdarg.h>
 #include <math.h>
 
 // Only SpringBoard / volume controller. Never hook UIKit globally.
 static Class VolumeClass;
 static __thread unsigned ContextDepth;
 static const void *WideStateKey = &WideStateKey;
-static void Log(NSString *format, ...) {
-    va_list ap; va_start(ap, format);
-    NSString *text = [[NSString alloc] initWithFormat:format arguments:ap];
-    va_end(ap);
-    FILE *f = fopen("/var/mobile/Library/Accessibility/volumehudexpanded.log", "a");
-    if (f) { fprintf(f, "%s %s\n", NSDate.date.description.UTF8String, text.UTF8String); fclose(f); }
-}
 static BOOL IsVolume(id obj) { return VolumeClass && [obj isKindOfClass:VolumeClass]; }
 static CGSize VHEStateSize(id obj, NSInteger state) {
     SEL sel = NSSelectorFromString(@"sizeForState:");
@@ -38,21 +29,17 @@ static void Context(id self, SEL cmd) {
 }
 static void (*OrigTransition)(id, SEL, NSInteger, BOOL, id);
 static void Transition(id self, SEL cmd, NSInteger state, BOOL animated, id completion) {
-    if (IsVolume(self)) {
-        CGSize size = VHEStateSize(self, state);
+    if (state > 0 && IsVolume(self)) {
         NSNumber *wide = objc_getAssociatedObject(self, WideStateKey);
-        // The initial expanded presentation happens OUTSIDE button context on 17.2.1.
-        // Learn it on presentation, before contextual button updates arrive.
-        if (!wide && state > 0 && Wide(size)) {
-            wide = @(state);
-            objc_setAssociatedObject(self, WideStateKey, wide, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-            Log(@"learn expanded state=%ld size=%@", (long)state, NSStringFromCGSize(size));
-        }
-        if (ContextDepth && state > 0 && wide && Narrow(size)) {
-            Log(@"block compact state=%ld size=%@ -> expanded=%@", (long)state, NSStringFromCGSize(size), wide);
-            state = wide.integerValue;
-        } else {
-            Log(@"transition state=%ld size=%@ buttonContext=%u", (long)state, NSStringFromCGSize(size), ContextDepth);
+        // Initial presentation is outside button context on iOS 17.2.1.
+        // Once learned, unrelated transitions need no size query.
+        if (!wide || ContextDepth) {
+            CGSize size = VHEStateSize(self, state);
+            if (!wide && Wide(size)) {
+                wide = @(state);
+                objc_setAssociatedObject(self, WideStateKey, wide, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+            }
+            if (ContextDepth && wide && Narrow(size)) state = wide.integerValue;
         }
     }
     // Keep system completion callbacks and timers intact, including dismissal.
@@ -67,10 +54,9 @@ __attribute__((constructor)) static void Start(void) {
         SEL transition = NSSelectorFromString(@"transitionToState:animated:completion:");
         if (!VolumeClass || !base || !class_getInstanceMethod(base, context) ||
             !class_getInstanceMethod(base, transition) || !class_getInstanceMethod(base, NSSelectorFromString(@"sizeForState:"))) {
-            Log(@"v0.1.1 unsupported runtime; NO hooks installed"); return;
+            return;
         }
         MSHookMessageEx(base, context, (IMP)Context, (IMP *)&OrigContext);
         MSHookMessageEx(base, transition, (IMP)Transition, (IMP *)&OrigTransition);
-        Log(@"v0.1.1 installed on %@", NSProcessInfo.processInfo.operatingSystemVersionString);
     }
 }
