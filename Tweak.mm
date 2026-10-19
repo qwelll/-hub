@@ -41,9 +41,9 @@ static void Transition(id self, SEL cmd, NSInteger state, BOOL animated, id comp
     if (IsVolume(self)) {
         CGSize size = VHEStateSize(self, state);
         NSNumber *wide = objc_getAssociatedObject(self, WideStateKey);
-        // Learn the first full-size state chosen by a real button event;
-        // do not assume Apple's private state enum values.
-        if (ContextDepth && !wide && state > 0 && Wide(size)) {
+        // The initial expanded presentation happens OUTSIDE button context on 17.2.1.
+        // Learn it on presentation, before contextual button updates arrive.
+        if (!wide && state > 0 && Wide(size)) {
             wide = @(state);
             objc_setAssociatedObject(self, WideStateKey, wide, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
             Log(@"learn expanded state=%ld size=%@", (long)state, NSStringFromCGSize(size));
@@ -67,10 +67,10 @@ __attribute__((constructor)) static void Start(void) {
         SEL transition = NSSelectorFromString(@"transitionToState:animated:completion:");
         if (!VolumeClass || !base || !class_getInstanceMethod(base, context) ||
             !class_getInstanceMethod(base, transition) || !class_getInstanceMethod(base, NSSelectorFromString(@"sizeForState:"))) {
-            Log(@"v0.1.0 unsupported runtime; NO hooks installed"); return;
+            Log(@"v0.1.1 unsupported runtime; NO hooks installed"); return;
         }
         MSHookMessageEx(base, context, (IMP)Context, (IMP *)&OrigContext);
         MSHookMessageEx(base, transition, (IMP)Transition, (IMP *)&OrigTransition);
-        Log(@"v0.1.0 installed on %@", NSProcessInfo.processInfo.operatingSystemVersionString);
+        Log(@"v0.1.1 installed on %@", NSProcessInfo.processInfo.operatingSystemVersionString);
     }
 }
